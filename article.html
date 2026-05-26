@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文章详情 - 花鹿和桃子</title>
+    <link rel="stylesheet" href="css/common.css">
+    
+    <!-- 依赖1：JSZip（docx-preview必须，用于解压docx文件） -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 依赖2：docx-preview官方库 -->
+    <script src="js/docx-preview.js"></script>
+
+    <style>
+        /* 文章内容区域样式（与首页风格统一） */
+        .article-content {
+            margin: 20px auto 0 auto;
+            max-width: 1200px;
+            width: 90%;
+            border-radius: 12px;
+            border: 2px solid rgba(135, 206, 250, 0.6);
+            box-shadow: 
+                inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                0 8px 24px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background-color: rgba(0, 0, 0, 0.15);
+            background-clip: padding-box;
+            padding: 32px;
+            color: #ffffff;
+            line-height: 1.8;
+            font-size: 16px;
+            min-height: calc(100vh - 180px);
+        }
+
+        /* 文章标题样式 */
+        .article-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(135, 206, 250, 0.3);
+        }
+
+        /* 加载状态样式 */
+        .loading {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            padding: 50px 0;
+        }
+
+        /* 错误状态样式 */
+        .error {
+            text-align: center;
+            color: #ff6b6b;
+            padding: 50px 0;
+            line-height: 2;
+        }
+
+        /* 备用下载链接样式 */
+        .fallback-link {
+            color: rgba(135, 206, 250, 1);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* 覆盖docx-preview默认样式，适配深色背景 */
+        .docx-preview {
+            color: #ffffff !important;
+        }
+
+        .docx-preview h1, .docx-preview h2, .docx-preview h3 {
+            color: #ffffff !important;
+            border-bottom: 1px solid rgba(135, 206, 250, 0.3) !important;
+            margin: 16px 0 !important;
+        }
+
+        .docx-preview a {
+            color: rgba(135, 206, 250, 1) !important;
+        }
+
+        .docx-preview table {
+            border-collapse: collapse !important;
+            border-color: rgba(135, 206, 250, 0.3) !important;
+            margin: 16px 0 !important;
+        }
+
+        .docx-preview th, .docx-preview td {
+            border: 1px solid rgba(135, 206, 250, 0.3) !important;
+            padding: 8px 12px !important;
+        }
+
+        .docx-preview p {
+            margin: 8px 0 !important;
+        }
+
+        .docx-preview ul, .docx-preview ol {
+            margin: 8px 0 8px 24px !important;
+        }
+
+        .docx-preview img {
+            max-width: 100% !important;
+            height: auto !important;
+            margin: 16px 0 !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 区域1：固定顶部导航栏（与首页完全一致） -->
+    <header class="area1 glass-effect">
+        <div class="area1-left">
+            <button class="function-btn" id="btn1">
+                <img src="image/index_image/icon1.png" alt="返回首页" class="function-icon">
+            </button>
+            <button class="function-btn" id="btn2">
+                <img src="image/index_image/icon2.png" alt="功能2" class="function-icon">
+            </button>
+            <button class="function-btn" id="btn3">
+                <img src="image/index_image/icon3.png" alt="功能3" class="function-icon">
+            </button>
+            <button class="function-btn" id="btn4">
+                <img src="image/index_image/icon4.png" alt="功能4" class="function-icon">
+            </button>
+        </div>
+        <div class="area1-center">
+            <img src="image/index_image/area1-logo.jpg" alt="花鹿和桃子标识" class="area1-logo">
+            <span class="area1-text">花鹿和桃子</span>
+        </div>
+        <div class="area1-right">
+            <button class="music-btn" id="musicBtn">
+                <img src="image/index_image/music-icon.png" alt="音乐" class="music-icon">
+            </button>
+            <div class="music-list glass-effect" id="musicList"></div>
+        </div>
+    </header>
+
+    <!-- 文章内容区域 -->
+    <div class="article-content">
+        <h1 class="article-title" id="articleTitle">正在加载文章...</h1>
+        <div id="articleBody" class="loading">正在解析文档内容...</div>
+    </div>
+
+    <!-- 流星效果容器（与首页一致） -->
+    <div id="meteor-container"></div>
+
+    <!-- 区域2：固定底部说明栏（与首页一致） -->
+    <footer class="area2 glass-effect">
+        欢迎浏览-有意见或建议请添加QQ:1375265860
+    </footer>
+
+    <!-- 引入全局公共脚本 -->
+    <script src="js/common.js"></script>
+
+    <!-- 文章详情页专属脚本（支持子文件夹路径） -->
+    <script>
+        window.addEventListener('load', async () => {
+            // 依赖检查
+            if (typeof JSZip === 'undefined') {
+                showError('依赖加载失败', 'JSZip库加载失败，请检查网络连接后刷新页面');
+                return;
+            }
+            if (typeof docx === 'undefined') {
+                showError('解析库加载失败', '请检查js/docx-preview.js文件是否存在且路径正确');
+                return;
+            }
+
+            // 从URL参数获取文章信息
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawArticleName = urlParams.get('name');
+            const rawFilePath = urlParams.get('path'); // 新增：获取完整文件路径
+            
+            if (!rawArticleName) {
+                showError('无效的文章链接', '请从首页文章列表点击进入');
+                return;
+            }
+
+            const articleName = decodeURIComponent(rawArticleName);
+            document.getElementById('articleTitle').textContent = articleName;
+
+            // 优先使用传递过来的完整路径，兼容旧链接
+            let fileUrl;
+            if (rawFilePath) {
+                fileUrl = decodeURIComponent(rawFilePath);
+            } else {
+                // 兼容旧链接：默认从根目录查找
+                const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+                fileUrl = `${basePath}/documents/${encodeURIComponent(articleName)}.docx`;
+            }
+            
+            console.log('正在加载文章：', fileUrl);
+
+            try {
+                const response = await fetch(fileUrl);
+                if (!response.ok) {
+                    throw new Error(`文件无法访问 (HTTP ${response.status})`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                if (arrayBuffer.byteLength === 0) {
+                    throw new Error('文件内容为空');
+                }
+
+                const articleBody = document.getElementById('articleBody');
+                articleBody.innerHTML = '';
+                articleBody.className = '';
+                
+                // docx渲染配置
+                await docx.renderAsync(arrayBuffer, articleBody, null, {
+                    className: 'docx-preview',
+                    ignoreWidth: true,
+                    ignoreHeight: true,
+                    inWrapper: false
+                });
+                
+                // 添加底部下载链接
+                const downloadLink = document.createElement('div');
+                downloadLink.style.marginTop = '32px';
+                downloadLink.style.paddingTop = '16px';
+                downloadLink.style.borderTop = '1px solid rgba(135, 206, 250, 0.3)';
+                downloadLink.style.textAlign = 'center';
+                downloadLink.innerHTML = `如果文章显示异常，可以 <a href="${fileUrl}" download="${articleName}.docx" class="fallback-link">下载原文件</a> 查看`;
+                articleBody.appendChild(downloadLink);
+
+            } catch (error) {
+                console.error('文章加载失败：', error);
+                showError(
+                    '文章加载失败',
+                    `错误信息：${error.message}<br>
+                    您可以 <a href="${fileUrl}" download="${articleName}.docx" class="fallback-link">点击这里下载原文件</a> 查看`
+                );
+            }
+        });
+
+        // 显示错误信息
+        function showError(title, message) {
+            document.getElementById('articleTitle').textContent = title;
+            document.getElementById('articleBody').className = 'error';
+            document.getElementById('articleBody').innerHTML = message;
+        }
+    </script>
+</body>
+</html>
